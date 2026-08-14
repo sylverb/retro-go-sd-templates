@@ -23,6 +23,13 @@ void odroid_settings_init(void);
 void odroid_settings_reset(void);
 void odroid_settings_commit(void);
 
+/* Bind per-core / per-homebrew settings to /data/<stem>.cfg (or
+ * /data/homebrew/<stem>.cfg). Pass NULL to unbind (launcher). Stem is the
+ * .bin basename without extension (e.g. "md" for /cores/md.bin). */
+void odroid_settings_bind_core_cfg(const char *core_stem);
+void odroid_settings_bind_homebrew_cfg(const char *game_stem);
+void odroid_settings_unbind_core_cfg(void);
+
 int32_t odroid_settings_FontSize_get();
 void odroid_settings_FontSize_set(int32_t);
 

@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #include "host_compat.h"
 #include "host_platform.h"
@@ -70,6 +72,12 @@ static uint8_t *ram_pool;
 static size_t ram_pool_size;
 static size_t ram_pool_used;
 static int32_t settings_beep = 1;
+static state_handler_t host_load_state_cb;
+static state_handler_t host_save_state_cb;
+static const int host_default_slot = 0;
+
+bool odroid_system_emu_load_state(int slot);
+bool odroid_system_emu_save_state(int slot);
 
 /* Tiny 8x8 font for ASCII 32..127 (bit0 = left). */
 static const uint8_t font8x8_basic[96][8] = {
@@ -222,6 +230,14 @@ int host_poll_events(void)
     if (!host_platform_poll(&host_pad)) {
         quit_requested = 1;
         return 0;
+    }
+    if (host_pad.want_save) {
+        bool ok = odroid_system_emu_save_state(host_default_slot);
+        printf("host: F1 save slot %d → %s\n", host_default_slot, ok ? "ok" : "failed");
+    }
+    if (host_pad.want_load) {
+        bool ok = odroid_system_emu_load_state(host_default_slot);
+        printf("host: F2 load slot %d → %s\n", host_default_slot, ok ? "ok" : "failed");
     }
     return 1;
 }
@@ -672,20 +688,76 @@ void odroid_system_emu_init(state_handler_t load_cb, state_handler_t save_cb,
                             sram_save_handler_t sram_save_cb,
                             cheat_update_handler_t cheat_update_cb)
 {
-    (void)load_cb; (void)save_cb; (void)screenshot_cb; (void)shutdown_cb;
+    host_load_state_cb = load_cb;
+    host_save_state_cb = save_cb;
+    (void)screenshot_cb; (void)shutdown_cb;
     (void)sleep_post_wakeup_cb; (void)sram_save_cb; (void)cheat_update_cb;
+}
+
+static void host_sanitize_stem(char *dst, size_t dst_sz, const char *name)
+{
+    size_t i, o = 0;
+    if (!name || !name[0])
+        name = "host";
+    for (i = 0; name[i] && o + 1 < dst_sz; i++) {
+        char c = name[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_')
+            dst[o++] = c;
+        else if (c == '.' )
+            break;
+        else
+            dst[o++] = '_';
+    }
+    if (o == 0) {
+        strncpy(dst, "host", dst_sz - 1);
+        dst[dst_sz - 1] = '\0';
+    } else {
+        dst[o] = '\0';
+    }
+}
+
+void odroid_system_get_save_path(char *path, size_t size, int slot)
+{
+    char stem[64];
+    const char *name = (ACTIVE_FILE && ACTIVE_FILE->name[0]) ? ACTIVE_FILE->name : "host";
+
+    host_sanitize_stem(stem, sizeof(stem), name);
+    if (slot < 0)
+        slot = 0;
+    snprintf(path, size, "host_saves/%s.slot%d.sav", stem, slot);
+}
+
+static int host_ensure_save_dir(void)
+{
+    if (mkdir("host_saves", 0755) == 0 || errno == EEXIST)
+        return 0;
+    perror("host: mkdir host_saves");
+    return -1;
 }
 
 bool odroid_system_emu_load_state(int slot)
 {
-    (void)slot;
-    return false;
+    char path[512];
+
+    if (!host_load_state_cb)
+        return false;
+    odroid_system_get_save_path(path, sizeof(path), slot);
+    printf("host: loading %s\n", path);
+    return host_load_state_cb(path);
 }
 
 bool odroid_system_emu_save_state(int slot)
 {
-    (void)slot;
-    return false;
+    char path[512];
+
+    if (!host_save_state_cb)
+        return false;
+    if (host_ensure_save_dir() != 0)
+        return false;
+    odroid_system_get_save_path(path, sizeof(path), slot);
+    printf("host: saving %s\n", path);
+    return host_save_state_cb(path);
 }
 
 int32_t odroid_settings_app_int32_get(const char *key, int32_t value_default)

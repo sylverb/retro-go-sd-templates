@@ -7,5 +7,6 @@
 *.su
 *.lst
 *_host
+host_saves/
 .DS_Store
 __pycache__/

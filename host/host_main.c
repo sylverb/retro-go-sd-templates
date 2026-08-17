@@ -36,6 +36,7 @@ int main(int argc, char **argv)
 
     printf("host: Esc or close window to quit\n");
     printf("host: Arrows=D-pad  Z=B  X=A  Enter=Start  Shift=Select  A/S=Y/X\n");
+    printf("host: F1=save state  F2=load state  (./host_saves/)\n");
     if (rom)
         printf("host: ROM %s\n", rom);
 

@@ -101,7 +101,11 @@ export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 ```
 
 Controls: arrows = D-pad, `Z`/`X` = B/A, Enter = Start, Shift = Select,
-`A`/`S` = Y/X (core Start/Select on G&W). Scale with `HOST_SCALE=2` (default).
+`A`/`S` = Y/X (core Start/Select on G&W). `F1` = save state, `F2` = load
+state (files under `./host_saves/`). Scale with `HOST_SCALE=2` (default).
+
+Note: the template `SaveState` / `LoadState` stubs still return `false` until
+you implement them in `src/main.c` — F1/F2 will then write/read those paths.
 
 ## Create your own core
 

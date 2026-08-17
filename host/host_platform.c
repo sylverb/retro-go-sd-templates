@@ -140,15 +140,28 @@ static int map_scancode(SDL_Scancode sc)
 int host_platform_poll(host_pad_t *pad)
 {
     SDL_Event ev;
+
+    if (pad) {
+        pad->want_save = 0;
+        pad->want_load = 0;
+    }
+
     while (SDL_PollEvent(&ev)) {
 #if HOST_SDL == 3
         if (ev.type == SDL_EVENT_QUIT)
             return 0;
         if (ev.type == SDL_EVENT_KEY_DOWN || ev.type == SDL_EVENT_KEY_UP) {
             int down = (ev.type == SDL_EVENT_KEY_DOWN);
-            if (ev.key.scancode == SDL_SCANCODE_ESCAPE)
+            SDL_Scancode sc = ev.key.scancode;
+            if (sc == SDL_SCANCODE_ESCAPE)
                 return 0;
-            int mapped = map_scancode(ev.key.scancode);
+            if (down && pad) {
+                if (sc == SDL_SCANCODE_F1)
+                    pad->want_save = 1;
+                else if (sc == SDL_SCANCODE_F2)
+                    pad->want_load = 1;
+            }
+            int mapped = map_scancode(sc);
             if (mapped >= 0 && pad)
                 set_key(pad, mapped, down);
         }
@@ -157,9 +170,16 @@ int host_platform_poll(host_pad_t *pad)
             return 0;
         if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
             int down = (ev.type == SDL_KEYDOWN);
-            if (ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+            SDL_Scancode sc = ev.key.keysym.scancode;
+            if (sc == SDL_SCANCODE_ESCAPE)
                 return 0;
-            int mapped = map_scancode(ev.key.keysym.scancode);
+            if (down && pad) {
+                if (sc == SDL_SCANCODE_F1)
+                    pad->want_save = 1;
+                else if (sc == SDL_SCANCODE_F2)
+                    pad->want_load = 1;
+            }
+            int mapped = map_scancode(sc);
             if (mapped >= 0 && pad)
                 set_key(pad, mapped, down);
         }

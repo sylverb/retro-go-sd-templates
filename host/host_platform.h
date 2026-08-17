@@ -10,6 +10,8 @@ extern "C" {
 
 typedef struct {
     uint8_t values[16]; /* enough for ODROID_INPUT_MAX */
+    uint8_t want_save;  /* edge: F1 pressed this poll */
+    uint8_t want_load;  /* edge: F2 pressed this poll */
 } host_pad_t;
 
 int host_platform_init(const char *title, int scale);

@@ -33,8 +33,13 @@
 #include "odroid_settings.h"
 #include "gw_malloc.h"
 
+#ifndef HOST_BUILD
 #include "gw_core_bridge.h"
 #include "gw_core_i18n.h"
+#else
+#include "host_compat.h"
+#include "gw_core_i18n.h"
+#endif
 
 #if defined(PROJECT_KIND_HOMEBREW)
 /* Matches firmware APPID_HOMEBREW — keeps savestate paths under homebrew. */
@@ -182,7 +187,6 @@ static bool load_rom(void)
     }
 
     size = ACTIVE_FILE->size;
-    ram_start = (uint32_t)&__CORE_BSS_END__;
 
     if (size > 0 && size <= ram_get_free_size()) {
         dest = ram_malloc(size);
@@ -400,7 +404,6 @@ void app_main(uint8_t load_state, uint8_t start_paused, int8_t save_slot)
     odroid_dialog_choice_t options[2];
 
     gw_core_bridge_init();
-    ram_start = (uint32_t)&__CORE_BSS_END__;
     memset(&pad, 0, sizeof(pad));
     audio_phase = 0;
 #if defined(PROJECT_KIND_CORE)

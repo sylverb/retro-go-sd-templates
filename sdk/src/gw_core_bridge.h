@@ -45,9 +45,9 @@ extern "C" {
  * read through ACTIVE_FILE_ptr (&firmware's ACTIVE_FILE global). */
 #define ACTIVE_FILE (*(retro_emulator_file_t **)(gw_firmware_abi()->ACTIVE_FILE_ptr))
 
-/* ram_start (gw_malloc.h): bump pointer into the shared RAM pool, read AND
- * written by cores through ram_start_ptr so ram_malloc()/ram_get_free_size()
- * (both firmware-side, see below) see the same live value. */
+/* ram_start (gw_malloc.h): bump pointer into the shared RAM pool. Cores
+ * read/write it through ram_start_ptr so ram_malloc()/ram_get_free_size()
+ * (firmware-side) see the live value. The launcher seeds this after load. */
 #define ram_start (*(gw_firmware_abi()->ram_start_ptr))
 
 /* frame_counter (gw_lcd.h): incremented by the LCD vsync ISR (firmware-side,
@@ -59,7 +59,7 @@ extern "C" {
  * DMA pacing counters, read AND written (PC Engine's CD-DA prefetch loop
  * advances common_emu_sound_dma_marker itself, mirroring what
  * common_emu_sound_sync() does internally) through the firmware's live
- * globals — same reasoning as ram_start above. */
+ * globals — same reasoning as other live ABI data pointers above. */
 #define dma_counter (*(gw_firmware_abi()->dma_counter_ptr))
 #define common_emu_sound_dma_marker (*(gw_firmware_abi()->common_emu_sound_dma_marker_ptr))
 
@@ -70,9 +70,7 @@ extern "C" {
 /* Defined by every core's own linker script (cores/_template/core_ram_emu.ld)
  * right after the loaded code+data and right after BSS, respectively.
  * tools/pack_core.py reads these two (via `nm`) to compute code_size/
- * bss_size for the CORE-header metadata; a core's C code can also take
- * their address directly (e.g. to seed ram_start past its own BSS, see
- * main_wsv.c) without depending on any firmware-side symbol. */
+ * bss_size for the CORE-header metadata. */
 extern uint32_t __CORE_CODE_END__;
 extern uint32_t __CORE_BSS_END__;
 

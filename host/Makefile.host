@@ -1,0 +1,102 @@
+# Host (Linux/macOS) SDL build — included from the project Makefile.
+#
+#   make host                     # SDL2, same PROJECT_KIND as device build
+#   make host HOST_SDL=3          # SDL3
+#   make host PROJECT_KIND=homebrew
+#   ./example_host [rom]          # optional ROM path (cores); or HOST_ROM=…
+#
+# Requires: pkg-config + libsdl2-dev / sdl2 (or sdl3).
+
+HOST_SDL   ?= 2
+HOST_SCALE ?= 2
+# Native compiler (do not reuse arm-none-eabi-gcc from sdk/Makefile).
+HOST_CC    ?= cc
+
+HOST_BUILD_DIR := build/host/$(PROJECT_KIND)_sdl$(HOST_SDL)
+
+ifeq ($(PROJECT_KIND),homebrew)
+HOST_BIN := ExampleHB_host
+else
+HOST_BIN := $(CORE_NAME)_host
+endif
+
+ifeq ($(HOST_SDL),3)
+HOST_SDL_PC := sdl3
+else ifeq ($(HOST_SDL),2)
+HOST_SDL_PC := sdl2
+else
+$(error HOST_SDL must be 2 or 3 (got '$(HOST_SDL)'))
+endif
+
+HOST_PKG_CFLAGS := $(shell pkg-config --cflags $(HOST_SDL_PC) 2>/dev/null)
+HOST_PKG_LIBS   := $(shell pkg-config --libs $(HOST_SDL_PC) 2>/dev/null)
+# macOS sdl2.pc pulls -lSDL2main which wants SDL_main; we provide main() ourselves.
+HOST_PKG_LIBS   := $(filter-out -lSDL2main,$(HOST_PKG_LIBS))
+ifeq ($(HOST_PKG_LIBS),)
+$(warning pkg-config $(HOST_SDL_PC) not found — host link may fail. Install SDL$(HOST_SDL) devel package.)
+endif
+
+HOST_INC_ROOT := $(GNW_CORE_SDK)/include
+
+HOST_DEFS := \
+	-DHOST_BUILD=1 \
+	-DHOST_SDL=$(HOST_SDL) \
+	-DHOST_SCALE=$(HOST_SCALE) \
+	-DSDL_MAIN_HANDLED=1 \
+	-DIS_LITTLE_ENDIAN \
+	-DGNW_DISABLE_COMPRESSION \
+	$(CORE_C_DEFS)
+
+HOST_INCLUDES := \
+	-Ihost \
+	-Ihost/stubs \
+	-I$(GNW_CORE_SDK)/src \
+	-I$(HOST_INC_ROOT)/Core/Inc \
+	-I$(HOST_INC_ROOT)/Core/Inc/retro-go \
+	-I$(HOST_INC_ROOT)/Core/Inc/porting \
+	-I$(HOST_INC_ROOT)/Core/Src/porting/lib \
+	-I$(HOST_INC_ROOT)/Core/Src/porting/lib/FatFs \
+	-I$(HOST_INC_ROOT)/retro-go-stm32/components/odroid \
+	$(HOST_PKG_CFLAGS)
+
+HOST_CFLAGS := -O2 -g -Wall -Wextra -std=c11 \
+	-include host/stubs/config.h \
+	$(HOST_DEFS) $(HOST_INCLUDES)
+
+HOST_SRCS := \
+	$(CORE_C_SOURCES) \
+	host/host_main.c \
+	host/host_platform.c \
+	host/host_emu.c \
+	host/host_i18n.c
+
+HOST_OBJS := $(addprefix $(HOST_BUILD_DIR)/,$(HOST_SRCS:.c=.o))
+HOST_DEPS := $(HOST_OBJS:.o=.d)
+
+.PHONY: host host_clean
+
+host: $(HOST_BIN)
+	$(V)$(ECHO) "[ HOST ]" $(HOST_BIN) "(SDL$(HOST_SDL), PROJECT_KIND=$(PROJECT_KIND))"
+
+$(HOST_BIN): $(HOST_OBJS)
+	$(V)$(ECHO) [ LD HOST ] $@
+	$(V)$(HOST_CC) -o $@ $(HOST_OBJS) $(HOST_PKG_LIBS)
+
+# Explicit pattern under HOST_BUILD_DIR only (do not collide with sdk ARM rules).
+$(HOST_BUILD_DIR)/src/%.o: src/%.c
+	$(V)mkdir -p $(dir $@)
+	$(V)$(ECHO) [ CC HOST ] $<
+	$(V)$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -MF"$(@:%.o=%.d)" -c $< -o $@
+
+$(HOST_BUILD_DIR)/host/%.o: host/%.c
+	$(V)mkdir -p $(dir $@)
+	$(V)$(ECHO) [ CC HOST ] $<
+	$(V)$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -MF"$(@:%.o=%.d)" -c $< -o $@
+
+host_clean:
+	$(V)rm -rf build/host
+	$(V)rm -f $(CORE_NAME)_host ExampleHB_host
+
+clean:: host_clean
+
+-include $(HOST_DEPS)

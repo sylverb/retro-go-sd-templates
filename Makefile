@@ -2,6 +2,8 @@
 #
 #   make                  — build + pack (default: PROJECT_KIND=core)
 #   make PROJECT_KIND=homebrew
+#   make host             — Linux/macOS SDL binary (same src/main.c)
+#   make host HOST_SDL=3  — same with SDL3
 #   make docker           — same build inside Docker (no host toolchain)
 #   make docker_shell     — interactive shell in the builder image
 #
@@ -161,3 +163,8 @@ docker_pull:
 # Interactive shell with the same image / mount as `make docker`.
 docker_shell:
 	$(DOCKER_RUN) bash
+
+#######################################
+# Host SDL (Linux / macOS)
+#######################################
+include host/Makefile.host

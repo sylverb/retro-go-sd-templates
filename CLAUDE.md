@@ -41,21 +41,19 @@ SD /homebrews/<name>.bin      (GWHB)     → Homebrew tab → run_gwhb_homebrew(
   (it already `include`s `sdk/Makefile`).
 3. In `src/main.c`, include firmware-style headers first, then
   `#include "gw_core_bridge.h"` **last** (macros rewrite `ACTIVE_FILE` /
-   `ram_start` / `common_emu_state`).
-4. Seed the RAM_EMU bump if you use `ram_malloc`:
-  `ram_start = (uint32_t)(uintptr_t)&__CORE_BSS_END__;`
-5. Wire `odroid_system_init` + `odroid_system_emu_init` (save/load/screenshot
+   `common_emu_state`).
+4. Wire `odroid_system_init` + `odroid_system_emu_init` (save/load/screenshot
   hooks as needed).
-6. Frame loop pattern (see `src/main.c`):
+5. Frame loop pattern (see `src/main.c`):
   - `wdog_refresh()` regularly (WWDG is ~hundreds of ms — a slow frame or
    a large memset without kicks soft-resets with no useful log).
   - `common_emu_frame_loop()` → input → emulate → present → audio.
-7. Fix link errors by adding **both** a redefine-syms line and a `core_`*
+6. Fix link errors by adding **both** a redefine-syms line and a `core_`*
   trampoline. If the symbol is not on the ABI yet, extend the **firmware**
    first, then `./scripts/sync_from_firmware.sh <firmware-tree>`.
-8. Match `required_abi_version` / `required_abi_min_size` to the firmware
+7. Match `required_abi_version` / `required_abi_min_size` to the firmware
   you flash (`SDK_VERSION` records the sync).
-9. Pack logos from `src/assets/*.bmp|png` via `--pad-logo` / `--header-logo`
+8. Pack logos from `src/assets/*.bmp|png` via `--pad-logo` / `--header-logo`
   (dark-on-light). Optional: `--cheat-ext ggcodes|pceplus|mcf` (or
    `cheat_ext=` in `--system`) so the launcher only probes that cheat
    file type — leave empty if unsupported.
@@ -64,7 +62,7 @@ SD /homebrews/<name>.bin      (GWHB)     → Homebrew tab → run_gwhb_homebrew(
 
 ## Porting checklist (homebrews)
 
-Same as cores for steps 2–8, but:
+Same as cores for steps 2–7, but:
 
 1. Build with `PROJECT_KIND=homebrew` (same `src/main.c`; ROM/cheat paths are
    compiled out via `PROJECT_KIND_HOMEBREW`).
@@ -106,7 +104,7 @@ core**.
 | **DTCM**                   | `0x20000000`                   | **128 KiB** total; **~104 KiB** for cores | Zero-wait data TCM                            | Stack (~24 KiB + redzone at top). Core pool is the bump below that: `dtcm_init` / `dtcm_malloc` / `dtcm_calloc` (**no** `free`; forgotten by `dtcm_init()`). Plan on **~104 KiB**                                                                                                                                                                 | Small hot **state** (CPU regs, line buffers, tiny synth structs)            |
 | **AHB SRAM**               | `0x30000000`                   | **128 KiB** total                         | AXI/AHB SRAM; **no** special I-fetch path     | Top **8 KiB** = firmware `.audio` DMA (non-cacheable). Remainder holds firmware `.persistent` / `.data` / `.bss` then the **newlib heap**. Cores use `malloc` / `calloc` / `free` **or** `ahb_malloc` / `ahb_calloc` (aliases). Budget roughly **~64 KiB − 8 KiB audio ≈ ~56 KiB** freeable heap after firmware AHB usage — exact leftover varies | Medium buffers that must not eat DTCM/RAM_EMU; anything that needs `free()` |
 | **AXI SRAM (framebuffer)** | `0x24000000`                   | **300 KiB**                               | Uncached / LCD path                           | Firmware-owned double framebuffer (2×320×240 RGB565)                                                                                                                                                                                                                                                                                              | Do not put core heaps here                                                  |
-| **AXI SRAM (RAM_EMU)**     | after FB (`__RAM_EMU_START_`_) | **~724 KiB** (`1024 KiB − 300 KiB`)       | Cached AXI                                    | Core **link** image (`.text` / `.rodata` / `.data` / `.bss`) + `ram_malloc` / `ram_calloc` bump from `ram_start`                                                                                                                                                                                                                                  | Default home for code, BSS, WRAM, VRAM, frame staging, most emulator state  |
+| **AXI SRAM (RAM_EMU)**     | after FB (`__RAM_EMU_START_`_) | **~724 KiB** (`1024 KiB − 300 KiB`)       | Cached AXI                                    | Core **link** image (`.text` / `.rodata` / `.data` / `.bss`) + `ram_malloc` / `ram_calloc` bump (firmware seeds the pool after load)                                                                                                                                                                                                              | Default home for code, BSS, WRAM, VRAM, frame staging, most emulator state  |
 
 
 Exact constants: `sdk/ld/gnw_ram_emu.ld`, `gnw_itcm_core.ld`, `gnw_ahb_core.ld`.
@@ -117,14 +115,15 @@ Exact constants: `sdk/ld/gnw_ram_emu.ld`, `gnw_itcm_core.ld`, `gnw_ahb_core.ld`.
 | Call                          | Pool                     | Notes                                                                                                                                                             |
 | ----------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `itc_malloc` / `itc_calloc`   | ITCM bump                | Failure sentinel can be `0xffffffff` (NULL is a valid ITCM address). Call `itc_init` when appropriate. Competes with any ITCM **segment** you pack into the core. |
-| `ram_malloc` / `ram_calloc`   | RAM_EMU bump             | Seed `ram_start` to `&__CORE_BSS_END_`_ first. `ram_get_free_size()` for leftover.                                                                                |
+| `ram_malloc` / `ram_calloc`   | RAM_EMU bump             | Firmware seeds `ram_start` after load. Call `ram_init()` to rewind the bump back to `ram_start`. Only assign `ram_start` yourself if you intentionally move that base before `ram_init()`. `ram_get_free_size()` for leftover. |
 | `malloc` / `calloc` / `free`  | **AHB** newlib heap      | Same physical pool as `ahb_`*. Freeable. No pool-wide reset (launcher AHB state must survive).                                                                    |
 | `ahb_malloc` / `ahb_calloc`   | **AHB** newlib heap      | Aliases of `malloc` / `calloc`. Prefer these when you want the pool to be obvious in the source. Large clears: chunk + `wdog_refresh()`.                          |
 | `dtcm_malloc` / `dtcm_calloc` | **DTCM** bump (~104 KiB) | Fast hot state. **No** `free` — call `dtcm_init()` to rewind. Do not confuse with `malloc`.                                                                       |
 
 
 There is **no** `dtcm_free` and **no** AHB bump rewind in the current ABI —
-AHB is the freeable heap; DTCM is the bump pool.
+AHB is the freeable heap; DTCM is the bump pool. For RAM_EMU, `ram_init()`
+is the rewind (back to the current `ram_start`).
 
 ### Choosing a home (rules of thumb)
 

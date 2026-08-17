@@ -58,9 +58,8 @@
  *   __CORE_BSS_END__
  *       End of .bss (NOLOAD). Firmware zeroes
  *       bss_size = __CORE_BSS_END__ - __CORE_CODE_END__ after load.
- *       Typical seed for the bump allocator:
- *         ram_start = (uint32_t)&__CORE_BSS_END__;
- *       (see src/main.c)
+ *       The launcher also uses this to position the RAM_EMU bump pool
+ *       before entering the core/homebrew.
  *
  *   __CORE_INIT_ARRAY_START__ / __CORE_INIT_ARRAY_END__
  *       Walked by gw_core_entry.S before calling CORE_ENTRY. Empty for

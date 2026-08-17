@@ -34,6 +34,12 @@ Headers, bridge trampolines, linker scripts, and packers are vendored under
 - Python 3 + Pillow (`pip install -r requirements.txt`) for packaging
   logos / homebrew covers from PNG/BMP/JPEG
 
+**Host SDL preview** (optional, Linux / macOS)
+
+- Native C compiler (`cc` / clang / gcc)
+- pkg-config
+- SDL2 (`libsdl2-dev` / `brew install sdl2`) or SDL3 (`HOST_SDL=3`)
+
 **Docker build** (no host toolchain)
 
 - Docker
@@ -75,6 +81,28 @@ Useful Docker targets:
 - `make docker_pull` — refresh the image from Docker Hub
 - `make docker_shell` — interactive shell in the same mount
 
+## Host preview (SDL)
+
+Compile the **same** `src/main.c` into a desktop binary for faster iteration
+(no G&W flash cycle). This does not replace the ARM pack for the device.
+
+```bash
+make host                       # SDL2 → ./example_host
+make host HOST_SDL=3            # SDL3 (needs sdl3.pc)
+make host PROJECT_KIND=homebrew # → ./ExampleHB_host
+./example_host                  # Esc / close window to quit
+./example_host /path/to/rom.bin # optional ROM for cores (or HOST_ROM=…)
+```
+
+On macOS, if `pkg-config sdl2` fails, point it at Homebrew:
+
+```bash
+export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+```
+
+Controls: arrows = D-pad, `Z`/`X` = B/A, Enter = Start, Shift = Select,
+`A`/`S` = Y/X (core Start/Select on G&W). Scale with `HOST_SCALE=2` (default).
+
 ## Create your own core
 
 1. Keep `PROJECT_KIND=core` (the default).
@@ -108,7 +136,7 @@ Include order in `src/main.c`:
 #include "common.h"
 #include "odroid_system.h"
 /* … other firmware-style headers … */
-#include "gw_core_bridge.h"   /* last — rewrites ACTIVE_FILE / ram_start */
+#include "gw_core_bridge.h"   /* last — rewrites ACTIVE_FILE / common_emu_state */
 ```
 
 Undefined references at link time usually mean a symbol is missing from

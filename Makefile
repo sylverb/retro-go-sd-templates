@@ -37,16 +37,24 @@ BUILD_DIR ?= build/$(PROJECT_KIND)
 # memcpy/memset/memmove/__aeabi_mem* and malloc/calloc/free/realloc.
 # Define these to exclude the SDK versions and supply your own:
 #
-#   GW_CORE_BRIDGE_DISABLE_SDK_MEMOPS — exclude the generic byte/word-loop
-#       memcpy, memmove, memset and all __aeabi_mem* variants. Use this when
-#       you provide optimised or ITCM-placed memory operations.
+#   GW_CORE_BRIDGE_DISABLE_SDK_MEMCPY — exclude memcpy only.
+#       Memmove stays routed through the SDK bridge (Doom/fastmem needs it).
+#
+#   GW_CORE_BRIDGE_DISABLE_SDK_MEMSET — exclude memset only.
+#
+#   GW_CORE_BRIDGE_DISABLE_SDK_MEMMOVE — exclude memmove too (requires your
+#       core to provide memmove).
+#
+#   GW_CORE_BRIDGE_DISABLE_SDK_MEMOPS — back-compat: exclude the full memops
+#       block (memcpy/memset/memmove + all __aeabi_mem* helpers).
 #
 #   GW_CORE_BRIDGE_DISABLE_SDK_MALLOC — exclude the malloc/calloc/free/
 #       realloc wrappers that forward to the firmware ABI heap. Use this when
 #       the core links its own allocator or needs a custom malloc/free path.
 #
 # To enable, add the define(s) to CORE_C_DEFS below, e.g.:
-#   CORE_C_DEFS += -DGW_CORE_BRIDGE_DISABLE_SDK_MEMOPS
+#   CORE_C_DEFS += -DGW_CORE_BRIDGE_DISABLE_SDK_MEMCPY
+#   CORE_C_DEFS += -DGW_CORE_BRIDGE_DISABLE_SDK_MEMSET
 #   CORE_C_DEFS += -DGW_CORE_BRIDGE_DISABLE_SDK_MALLOC
 
 #######################################

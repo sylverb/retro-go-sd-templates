@@ -103,11 +103,11 @@ core**.
 | **ITCM**                   | `0x00000000`                   | **64 KiB**                                | Zero-wait instruction + data, tightly coupled | `itc_malloc` / `itc_calloc`; and/or packed `GNW_CORE_REGION_ITCM` segment (`gnw_itcm_core.ld`)                                                                                                                                                                                                                                                    | Hot interpreters, opcode dispatch, tiny hot loops — **code first**          |
 | **DTCM**                   | `0x20000000`                   | **128 KiB** total; **~104 KiB** for cores | Zero-wait data TCM                            | Stack (~24 KiB + redzone at top). Core pool is the bump below that: `dtcm_init` / `dtcm_malloc` / `dtcm_calloc` (**no** `free`; forgotten by `dtcm_init()`). Plan on **~104 KiB**                                                                                                                                                                 | Small hot **state** (CPU regs, line buffers, tiny synth structs)            |
 | **AHB SRAM**               | `0x30000000`                   | **128 KiB** total                         | AXI/AHB SRAM; **no** special I-fetch path     | Top **8 KiB** = firmware `.audio` DMA (non-cacheable). Remainder holds firmware `.persistent` / `.data` / `.bss` then the **newlib heap**. Cores use `malloc` / `calloc` / `free` **or** `ahb_malloc` / `ahb_calloc` (aliases). Budget roughly **~64 KiB − 8 KiB audio ≈ ~56 KiB** freeable heap after firmware AHB usage — exact leftover varies | Medium buffers that must not eat DTCM/RAM_EMU; anything that needs `free()` |
-| **AXI SRAM (framebuffer)** | `0x24000000`                   | **300 KiB**                               | Uncached / LCD path                           | Firmware-owned double framebuffer (2×320×240 RGB565)                                                                                                                                                                                                                                                                                              | Do not put core heaps here                                                  |
-| **AXI SRAM (RAM_EMU)**     | after FB (`__RAM_EMU_START_`_) | **~724 KiB** (`1024 KiB − 300 KiB`)       | Cached AXI                                    | Core **link** image (`.text` / `.rodata` / `.data` / `.bss`) + `ram_malloc` / `ram_calloc` bump (firmware seeds the pool after load)                                                                                                                                                                                                              | Default home for code, BSS, WRAM, VRAM, frame staging, most emulator state  |
+| **AXI SRAM (framebuffer)** | `0x24000000`                   | **300 KiB** (RGB565) / **150 KiB** (LUT8) | Uncached / LCD path                           | Firmware-owned double framebuffer (2×320×240 RGB565 or 1×LUT8). In LUT8 mode the upper **150 KiB** is freed as the cacheable **RAM_UC** window                                                                                                                                                                                                   | LUT8 bonus: `GNW_CORE_REGION_RAM_UC` segment or `lcd_get_bonus_pool()` heap |
+| **AXI SRAM (RAM_EMU)**     | after FB (`__RAM_EMU_START__`) | **~724 KiB** (`1024 KiB − 300 KiB`)       | Cached AXI                                    | Core **link** image (`.text` / `.rodata` / `.data` / `.bss`) + `ram_malloc` / `ram_calloc` bump (firmware seeds the pool after load)                                                                                                                                                                                                              | Default home for code, BSS, WRAM, VRAM, frame staging, most emulator state  |
 
 
-Exact constants: `sdk/ld/gnw_ram_emu.ld`, `gnw_itcm_core.ld`, `gnw_ahb_core.ld`.
+Exact constants: `sdk/ld/gnw_ram_emu.ld`, `gnw_itcm_core.ld`, `gnw_ram_uc_core.ld`.
 
 ### Pool APIs (`gw_malloc.h` → `mem_ctl`)
 
@@ -156,6 +156,105 @@ is the rewind (back to the current `ram_start`).
 
 You cannot put a ~66 KiB object in 64 KiB ITCM. If ITCM already holds a
 large engine, the next hot buffer goes to AHB or RAM_EMU.
+
+### LUT8 mode (8-bit indexed palette)
+
+The LTDC supports two pixel formats at runtime, switchable per-core:
+
+| | RGB565 (default) | LUT8 |
+|---|---|---|
+| Bytes per pixel | 2 | 1 |
+| Framebuffer ×2 | 2 × 150 KiB = **300 KiB** | 2 × 75 KiB = **150 KiB** |
+| Bonus pool freed | 0 | **~150 KiB** (cacheable AXI) |
+| Max simultaneous colors | 65 536 | 256 (CLUT entries, 0x00RRGGBB) |
+| Drawing code | `uint16_t *fb` | `uint8_t *fb` + CLUT indices |
+
+#### When to use LUT8
+
+- The emulated system has a **small palette** (≤ 256 colors): Game Boy,
+  NES, PICO-8, Master System, Game Gear, PC Engine (background/sprite
+  combined ≤ 256).
+- You need the extra **150 KiB RAM_UC** for code/data that won't fit in
+  RAM_EMU alone.
+- Halving the framebuffer bandwidth can help with DMA timing on tight
+  scanline budgets.
+
+#### When NOT to use LUT8
+
+- The emulated system outputs **direct-color or > 256 simultaneous colors**
+  (Mega Drive DAC scenes, SNES hi-color, GBA with > 256 entries, etc.).
+- The core draws directly in RGB565 and converting to palette indices every
+  frame would cost more than it saves.
+
+#### How to switch
+
+```c
+#include "gw_lcd.h"
+
+lcd_setup_framebuffers(LCD_MODE_LUT8);
+lcd_clear_buffers();
+
+static const uint32_t my_clut[16] = {
+    0x000000, 0x1D2B53, 0x7E2553, 0x008751,
+    0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
+    0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436,
+    0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA,
+};
+lcd_set_clut(my_clut, 16);
+```
+
+After `lcd_set_clut(clut, count)`:
+- Indices `[0..count)` hold the cart palette.
+- Indices `[count..2*count)` hold auto-generated **darkened twins**
+  (LCD_DARKEN_BIT = 0x20). A fullscreen darken is just `fb[i] |= 0x20`.
+- If `2*count ≤ 256`, the remaining slots are available for the overlay
+  theme (`lcd_set_overlay_clut`, auto-registered at `LCD_OVERLAY_CLUT_BASE`
+  = 0x40).
+- If `count == 256`, darkened twins and overlay share those 256 slots
+  (overlay overwrites `[64..]` while the pause menu is drawn).
+
+#### Mode-agnostic drawing
+
+Use `lcd_pen_t` to write pixels without branching on mode everywhere:
+
+```c
+lcd_pen_t pen = lcd_pen(0xFFFF); /* white in RGB565 → nearest CLUT idx in LUT8 */
+lcd_pen_set(&pen, y * WIDTH + x);
+lcd_pen_run(&pen, y * WIDTH + x, count);
+lcd_pen_darken(&pen, y * WIDTH + x);
+```
+
+Or check once at the top:
+
+```c
+int mode_lut8 = (lcd_get_mode() == LCD_MODE_LUT8);
+size_t frame_sz = lcd_get_frame_size(); /* 153600 or 76800 */
+```
+
+#### Bonus pool (RAM_UC)
+
+In LUT8 mode, the **upper 150 KiB** of the LCD pool becomes available:
+
+```c
+uint8_t *pool; size_t pool_size;
+lcd_get_bonus_pool(&pool, &pool_size);
+```
+
+This memory starts at `__RAM_UC_CORE_START__` and is cacheable AXI SRAM.
+If the core has a `GNW_CORE_REGION_RAM_UC` segment (packed via
+`gnw_ram_uc_core.ld`), the loader places code/data there first, and
+`lcd_get_bonus_pool` returns whatever is left after that segment.
+
+#### Constraints
+
+- CLUT programming (`lcd_set_clut`) takes effect at the next LTDC
+  refresh — do it during vblank or at init, not mid-scanline.
+- `GW_LCD_FRAME_SIZE` is a **compile-time** constant (RGB565). For
+  runtime-safe framebuffer sizing use `lcd_get_frame_size()`.
+- Switching back to RGB565 (`lcd_setup_framebuffers(LCD_MODE_RGB565)`)
+  reclaims the full 300 KiB for framebuffers and invalidates the bonus
+  pool pointer. Clear framebuffers after switching.
+- The bonus pool is **not** available in RGB565 mode.
 
 ### Watchdog and big clears
 

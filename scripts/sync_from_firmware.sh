@@ -74,7 +74,7 @@ done
 
 cp "$FW/ld/gnw_ram_emu.ld" "$ROOT/sdk/ld/gnw_ram_emu.ld"
 cp "$FW/ld/gnw_itcm_core.ld" "$ROOT/sdk/ld/gnw_itcm_core.ld"
-cp "$FW/ld/gnw_ahb_core.ld" "$ROOT/sdk/ld/gnw_ahb_core.ld"
+cp "$FW/ld/gnw_ram_uc_core.ld" "$ROOT/sdk/ld/gnw_ram_uc_core.ld"
 cp "$FW/tools/pack_core.py" "$ROOT/sdk/tools/pack_core.py"
 cp "$FW/tools/pack_homebrew.py" "$ROOT/sdk/tools/pack_homebrew.py"
 

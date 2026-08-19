@@ -31,6 +31,25 @@ GNW_CORE_SDK ?= sdk
 BUILD_DIR ?= build/$(PROJECT_KIND)
 
 #######################################
+# SDK bridge overrides (optional)
+#######################################
+# The SDK bridge (gw_core_bridge.c) provides default implementations for
+# memcpy/memset/memmove/__aeabi_mem* and malloc/calloc/free/realloc.
+# Define these to exclude the SDK versions and supply your own:
+#
+#   GW_CORE_BRIDGE_DISABLE_SDK_MEMOPS — exclude the generic byte/word-loop
+#       memcpy, memmove, memset and all __aeabi_mem* variants. Use this when
+#       you provide optimised or ITCM-placed memory operations.
+#
+#   GW_CORE_BRIDGE_DISABLE_SDK_MALLOC — exclude the malloc/calloc/free/
+#       realloc wrappers that forward to the firmware ABI heap. Use this when
+#       the core links its own allocator or needs a custom malloc/free path.
+#
+# To enable, add the define(s) to CORE_C_DEFS below, e.g.:
+#   CORE_C_DEFS += -DGW_CORE_BRIDGE_DISABLE_SDK_MEMOPS
+#   CORE_C_DEFS += -DGW_CORE_BRIDGE_DISABLE_SDK_MALLOC
+
+#######################################
 # Kind-specific compile defs + packing
 #######################################
 ifeq ($(PROJECT_KIND),core)

@@ -5,7 +5,7 @@
  *
  * This file is both the default link script AND the memory-layout reference
  * for core authors. Read it once when you start a core; only fork it when
- * you need extra regions (ITCM / AHB / DTCM) — see "Extending" below.
+ * you need extra regions (ITCM / RAM_UC) — see "Extending" below.
  *
  * Related pieces (not duplicated here):
  *   sdk/Makefile              — build / objcopy / pack rules
@@ -117,19 +117,26 @@
  *  Extending (multi-segment cores)
  * ============================================================================
  *
- * Most cores need only this script. If you need ITCM / AHB:
+ * Most cores need only this script. Extra regions:
  *
+ * ITCM (hot code):
  *   1. Copy this file to your core dir (e.g. my_core.ld) and set
  *      CORE_LDSCRIPT := my_core.ld
- *   2. INCLUDE gnw_itcm_core.ld and/or gnw_ahb_core.ld (shipped in sdk/ld/).
- *   3. Add MEMORY { ITCM ... } / AHB ... and output sections named
- *      .core_itcm / .core_ahb, defining the symbol triples:
+ *   2. INCLUDE gnw_itcm_core.ld (shipped in sdk/ld/).
+ *   3. Add MEMORY { ITCM ... } and output section .core_itcm, defining:
  *        __ITCM_CORE_START__ / __CORE_ITCM_CODE_END__ / __CORE_ITCM_BSS_END__
- *        __AHB_CORE_START__  / __CORE_AHB_CODE_END__  / __CORE_AHB_BSS_END__
- *   4. pack_core.py auto-detects those symbols and embeds the segments —
- *      no Makefile --segment / CORE_EXTRA_SEGMENTS required. If the symbols
- *      are absent (this default script), packing stays single-segment.
+ *   4. pack_core.py auto-detects those symbols and embeds the segment.
  *      Reference: firmware cores/pce/pce_core.ld, cores/gba/gba_core.ld.
+ *
+ * RAM_UC (LUT8 LCD bonus, 150 KiB at __RAM_UC_CORE_START__):
+ *   Same recipe with gnw_ram_uc_core.ld (shipped in sdk/ld/),
+ *   MEMORY { RAM_UC_CORE ... }, output section .core_ram_uc, symbols
+ *   __CORE_RAM_UC_CODE_END__ / __CORE_RAM_UC_BSS_END__.
+ *   Firmware switches the LTDC to LUT8 before loading this segment.
+ *   Leftover after code+bss is lcd_get_bonus_pool().
+ *
+ * Do NOT place core segments in AHB or DTCM — those are firmware dynamic
+ * pools (malloc heap / dtcm_* bump + stack). pack_core rejects them.
  *
  * Segment 0 is always RAM_EMU and always carries the entry trampoline.
  * Max segments: GNW_CORE_MAX_SEGMENTS (4) in gnw_core_meta.h.

@@ -160,8 +160,37 @@ sdk/
                     start with ld/core_ram_emu.ld
   tools/            pack_core.py, pack_homebrew.py
   Makefile          Shared compile/link rules (included by the root Makefile)
-scripts/            Sync helper
+host/               SDL host preview (stubs, shim, Makefile.host)
+scripts/            Sync helper, release staging, cover generator
 ```
+
+## LUT8 mode (8-bit indexed palette)
+
+The firmware LCD supports **RGB565** (default, 2 bytes/pixel) and **LUT8**
+(1 byte/pixel, 256-entry CLUT). LUT8 halves the framebuffer footprint from
+300 KiB to 150 KiB, freeing 150 KiB of **bonus RAM** for the core.
+
+Use LUT8 when the emulated system has ≤ 256 simultaneous colors (Game Boy,
+NES, PICO-8, Master System, Game Gear, PC Engine…). Stay on RGB565 for
+direct-color / high-color systems (Mega Drive DAC, SNES hi-color, GBA with
+large palettes).
+
+Switch at init:
+
+```c
+lcd_setup_framebuffers(LCD_MODE_LUT8);
+lcd_set_clut(my_palette, palette_count);
+```
+
+Retrieve the freed memory:
+
+```c
+uint8_t *pool; size_t pool_size;
+lcd_get_bonus_pool(&pool, &pool_size);
+```
+
+See `CLAUDE.md` for full details (CLUT darkened twins, `lcd_pen_t`
+mode-agnostic drawing, overlay theme slots, constraints).
 
 ## ABI compatibility
 

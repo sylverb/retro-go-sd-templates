@@ -92,7 +92,9 @@ CORE_COMMON_C_INCLUDES := \
 -I$(INC_ROOT)/Drivers/CMSIS/Device/ST/STM32H7xx/Include \
 -I$(INC_ROOT)/Drivers/CMSIS/Include
 
-CFLAGS = $(MCU) $(OPT) -Wall -fdata-sections -ffunction-sections \
+# -g keeps DWARF in the ELF for crash PC/LR → source (addr2line). The packed
+# .bin from objcopy does not include debug sections, so SD size is unchanged.
+CFLAGS = $(MCU) $(OPT) -g -Wall -fdata-sections -ffunction-sections \
 -fno-common -MMD -MP -MF"$(@:%.o=%.d)" \
 $(CORE_COMMON_C_DEFS) $(CORE_C_DEFS) \
 $(CORE_COMMON_C_INCLUDES) $(CORE_C_INCLUDES)

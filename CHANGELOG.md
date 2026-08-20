@@ -17,8 +17,11 @@ When you cut a release:
 2. Commit the changelog update.
 3. Push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
 
-CI reads the matching section and uses it as the GitHub Release notes. The tag
-is also used in staged asset names (`<binary>-<tag>.bin`, `<binary>-<tag>.zip`).
+CI reads the matching section and uses it as the GitHub Release notes. Assets
+attached to the release:
+
+- `<binary>-<tag>.zip` — SD layout only (`cores/` or `homebrews/` + packed `.bin`)
+- `<binary>-<tag>-debug.zip` — ELF + linker map (use `arm-none-eabi-addr2line` for crash PC/LR → function/line)
 
 ## [Unreleased]
 

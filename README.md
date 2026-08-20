@@ -192,6 +192,27 @@ lcd_get_bonus_pool(&pool, &pool_size);
 See `CLAUDE.md` for full details (CLUT darkened twins, `lcd_pen_t`
 mode-agnostic drawing, overlay theme slots, constraints).
 
+## Releases (GitHub tags `v*`)
+
+Pushing a tag `vX.Y.Z` (with a matching `## [vX.Y.Z]` section in
+`CHANGELOG.md`) creates a GitHub Release with **two** zip assets only:
+
+| Asset | Contents |
+|-------|----------|
+| `<name>-vX.Y.Z.zip` | SD layout: `cores/<name>.bin` or `homebrews/<name>.bin` |
+| `<name>-vX.Y.Z-debug.zip` | `*_core.elf`, linker `.map`, and a short README |
+
+Unzip the install archive onto the SD card root. For a crash PC/LR:
+
+```bash
+unzip example-v1.0.0-debug.zip
+arm-none-eabi-addr2line -e example_core.elf -f -C -a 0x<PC> 0x<LR>
+```
+
+Needs `arm-none-eabi-addr2line` on `PATH`, or the `sylverb/retro-go-sd-builder`
+Docker image. From a repo checkout you can also use
+`python3 scripts/resolve_addr.py --elf …` — see the README inside the debug zip.
+
 ## ABI compatibility
 
 Cores and homebrews embed `required_abi_version` and `required_abi_min_size`

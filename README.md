@@ -64,6 +64,11 @@ make docker PROJECT_KIND=homebrew
 
 Override the image tag if needed: `make docker RELEASE_VERSION=v1.5`.
 
+The packed header version is taken from `git describe --tags --dirty`
+(`CORE_VERSION`; override with `make CORE_VERSION=v1.2.3`). No tags →
+`NOTAG` → header `0.0.0`. Release tags should be `vX.Y.Z` so the Info
+dialog can show a semantic version.
+
 Produces:
 
 - **core:** `example.bin` → `/cores/example.bin`, test ROMs under `/roms/example/`
@@ -124,9 +129,10 @@ you implement them in `src/main.c` — F1/F2 will then write/read those paths.
 ## Create your own homebrew
 
 1. Build with `PROJECT_KIND=homebrew`.
-2. Edit `Makefile`: `CORE_NAME`, pack `--name` / `--version` / `--cover` /
-   `--out`. You can drop the core-only pack recipe and `PROJECT_KIND_CORE`
-   branches once you no longer need them.
+2. Edit `Makefile`: `CORE_NAME`, pack `--name` / `--cover` /
+   `--out`. Version comes from `git describe --tags --dirty` (override with
+   `CORE_VERSION=…`). You can drop the core-only pack recipe and
+   `PROJECT_KIND_CORE` branches once you no longer need them.
 3. Cover JPEG must decode ≤ **186×100** and be ≤ **10 KiB**. An on-disk
    `/covers/homebrew/<stem>.img` **overrides** the embedded cover.
 4. Large assets that do not fit in RAM_EMU stay as **sibling files** under

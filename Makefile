@@ -96,6 +96,15 @@ PACK_HOMEBREW := $(GNW_CORE_SDK)/tools/pack_homebrew.py
 GEN_COVER     := scripts/gen_homebrew_cover.py
 
 #######################################
+# Packed header version
+#######################################
+# gnw_core_meta_t / gwhb_meta_t only store major.minor.patch (0..255).
+# CORE_VERSION is the full git describe string passed to the packers; they
+# extract the leading vX.Y.Z (NOTAG / missing tags → 0.0.0).
+# Override: make CORE_VERSION=v1.2.3
+CORE_VERSION ?= $(shell git describe --tags --dirty 2>/dev/null || echo NOTAG)
+
+#######################################
 # Pack
 #######################################
 .PHONY: pack cover
@@ -103,13 +112,13 @@ GEN_COVER     := scripts/gen_homebrew_cover.py
 ifeq ($(PROJECT_KIND),core)
 
 pack: $(TARGET_BIN) $(PAD_LOGO) $(HEADER_LOGO)
-	$(V)$(ECHO) [ PACK CORE ] $(PACKED_BIN)
+	$(V)$(ECHO) [ PACK CORE ] $(PACKED_BIN) version=$(CORE_VERSION)
 	$(V)python3 $(PACK_CORE) \
 		--elf $(TARGET_ELF) --bin $(TARGET_BIN) \
 		--system-name "Example Core" --dirname example \
 		--extensions "bin" \
 		--core-name "Example" \
-		--version 1.0.0 \
+		--version "$(CORE_VERSION)" \
 		--cheat-ext ggcodes \
 		--pad-logo $(PAD_LOGO) \
 		--header-logo $(HEADER_LOGO) \
@@ -131,10 +140,10 @@ $(COVER_JPG): $(GEN_COVER)
 		--height $(COVER_HEIGHT)
 
 pack: $(TARGET_BIN) $(COVER_JPG)
-	$(V)$(ECHO) [ PACK GWHB ] $(PACKED_BIN)
+	$(V)$(ECHO) [ PACK GWHB ] $(PACKED_BIN) version=$(CORE_VERSION)
 	$(V)python3 $(PACK_HOMEBREW) \
 		--elf $(TARGET_ELF) --bin $(TARGET_BIN) \
-		--name "$(HB_NAME)" --version 1.0.0 \
+		--name "$(HB_NAME)" --version "$(CORE_VERSION)" \
 		--cover $(COVER_JPG) \
 		--out $(PACKED_BIN)
 
@@ -144,7 +153,7 @@ all: pack
 
 # Read-only helpers for CI / scripts (make print-PROJECT_KIND, etc.).
 .PHONY: print-PROJECT_KIND print-PACKED_BIN print-CORE_NAME print-DOCKER_IMAGE \
-	print-TARGET_ELF print-TARGET_MAP
+	print-TARGET_ELF print-TARGET_MAP print-CORE_VERSION
 print-PROJECT_KIND:
 	@echo $(PROJECT_KIND)
 print-PACKED_BIN:
@@ -157,6 +166,8 @@ print-TARGET_ELF:
 	@echo $(TARGET_ELF)
 print-TARGET_MAP:
 	@echo $(BUILD_DIR)/$(CORE_NAME)_core.map
+print-CORE_VERSION:
+	@echo $(CORE_VERSION)
 
 clean::
 	$(V)rm -f $(PACKED_BIN)

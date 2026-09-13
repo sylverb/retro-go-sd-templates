@@ -1,9 +1,7 @@
 /*
  * Generic core entry trampoline.
  *
- * Same convention as PICO-8's .pico8_entry (see
- * docs/PICO8_EXTERNAL_MODULE.md, "Entry Point"): the firmware never links
- * against any symbol from the core, it just jumps to
+ * The firmware never links against any symbol from the core; it jumps to
  * (__RAM_EMU_START__ | 1) after loading the payload — see
  * run_dynamic_core() in Core/Src/retro-go/rg_emulators.c. The core's linker
  * script (cores/_template/core_ram_emu.ld) places this .core_entry section

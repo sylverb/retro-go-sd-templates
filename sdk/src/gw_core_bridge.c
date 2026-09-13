@@ -15,7 +15,7 @@
  *   - __aeabi_ldivmod / __aeabi_uldivmod: return a {quot,rem} pair in
  *     r0-r3 per AAPCS, which a plain C function pointer can't express.
  *     ldivmod_quot/ldivmod_rem (and the u* variants) ARE in the ABI for
- *     when this is needed — see docs/PICO8_EXTERNAL_MODULE.md.
+ *     when this is needed.
  * If a core's link fails with "undefined reference to __aeabi_*", that
  * core is the first to need the above.
  *
@@ -1081,8 +1081,8 @@ rg_stat_t core_rg_storage_stat(const char *path)
 {
     return gw_firmware_abi()->rg_storage_stat(path);
 }
-/* PokeMini (TARGET_GNW) calls rg_storage_exists for optional BIOS load.
- * Compose from rg_storage_stat — no ABI append. */
+/* External cores (e.g. PokeMini) call rg_storage_exists for optional BIOS
+ * load. Compose from rg_storage_stat — no ABI append. */
 bool core_rg_storage_exists(const char *path)
 {
     return gw_firmware_abi()->rg_storage_stat(path).exists;
@@ -1097,14 +1097,14 @@ const char *core_rg_basename(const char *path)
 }
 
 /* ====================================================================
- * LCD-Game-Emulator (Game & Watch handhelds): RTC write-back, LCD swap
- * poll, hardware JPEG (background images), LZ4/LZMA ROM unpack.
+ * LCD-Game-Emulator (external Game & Watch core): RTC write-back, LCD
+ * swap poll, hardware JPEG (background images), LZ4/LZMA ROM unpack.
  * odroid_system_switch_app was already on the ABI but missing a
- * trampoline — first consumer is main_gw.c on ROM-load failure.
+ * trampoline — first consumer is the GW core on ROM-load failure.
  *
  * JPEG: ABI exposes JPEG_DecodeToFrameInit/ToFrame/GetSize/DeInit
- * directly so external/LCD-Game-Emulator/src/gw_sys/gw_romloader.c is
- * unchanged (redefine-syms still maps those names → core_*).
+ * directly so the external core's gw_romloader.c is unchanged
+ * (redefine-syms still maps those names → core_*).
  * ==================================================================== */
 void core_GW_SetUnixTM(struct tm *tm) { gw_firmware_abi()->GW_SetUnixTM(tm); }
 uint32_t core_JPEG_DecodeToFrameInit(uint32_t JPEG_Buffer, uint32_t JPEG_Buffer_Size)
@@ -1333,4 +1333,58 @@ char  *getenv(const char *name) { return core_getenv(name); }
 unsigned long strtoul(const char *nptr, char **endptr, int base)
 {
     return core_strtoul(nptr, endptr, base);
+}
+
+/* ---- ours: derived-blob flash cache + four small slots ---------------
+ * A core that decodes or weaves an asset once caches it in external flash
+ * under a key and gets a memory-mapped pointer back on every later launch
+ * (the arcade master's woven 68000 program, its Z80 flag tables, the
+ * YM2610 LFO table). See gw_firmware_abi.h.
+ *
+ * KEEP THESE RESIDENT. The streaming trampolines run while OSPI is
+ * unmapped, so a core that sweeps them into a flash-resident cold section
+ * faults on the first blob. They are ~230 bytes in total. */
+const uint8_t *core_lookup_data_in_flash(const char *key, uint32_t *size_out)
+{
+    return gw_firmware_abi()->lookup_data_in_flash(key, size_out);
+}
+const uint8_t *core_store_data_in_flash(const char *key, const uint8_t *data, uint32_t data_size)
+{
+    return gw_firmware_abi()->store_data_in_flash(key, data, data_size);
+}
+void core_store_data_set_progress_cb(void (*cb)(uint32_t done, uint32_t total))
+{
+    gw_firmware_abi()->store_data_set_progress_cb(cb);
+}
+bool core_store_data_begin(void *st, const char *key, uint32_t total_size)
+{
+    return gw_firmware_abi()->store_data_begin(st, key, total_size);
+}
+bool core_store_data_append(void *st, const uint8_t *buf, uint32_t len)
+{
+    return gw_firmware_abi()->store_data_append(st, buf, len);
+}
+const uint8_t *core_store_data_finish(void *st)
+{
+    return gw_firmware_abi()->store_data_finish(st);
+}
+void core_store_data_abort(void *st)
+{
+    gw_firmware_abi()->store_data_abort(st);
+}
+int core_lcd_get_mode(void)
+{
+    return gw_firmware_abi()->lcd_get_mode();
+}
+void core_odroid_overlay_draw_progress_bar(const char *header, uint8_t progress)
+{
+    gw_firmware_abi()->odroid_overlay_draw_progress_bar(header, progress);
+}
+bool core_rg_storage_mkdir(const char *dir)
+{
+    return gw_firmware_abi()->rg_storage_mkdir(dir);
+}
+const char *core_rg_dirname(const char *path)
+{
+    return gw_firmware_abi()->rg_dirname(path);
 }

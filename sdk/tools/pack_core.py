@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Package a standalone "core" build (see cores/_template/, cores/wsv/, …) into the CORE-header .bin format the launcher discovers at boot
+Package a standalone "core" build (see cores/_template/, …) into the CORE-header .bin format the launcher discovers at boot
 (emulators_scan_cores() / gnw_core_probe() in Core/Src/retro-go/rg_emulators.c).
 
 File layout produced (all integers little-endian):
@@ -43,16 +43,16 @@ Usage — image logos (template / new cores):
         --header-logo assets/header.bmp \
         --out example.bin
 
-Usage — single-system, single-segment core (see cores/wsv/Makefile):
+Usage — single-system, single-segment core (see cores/_template/Makefile):
 
     tools/pack_core.py \\
-        --elf build/wsv_core.elf --bin build/wsv_core.bin \\
-        --system-name "Watara Supervision" --dirname wsv \\
-        --extensions "wsv sv bin lzma" \\
+        --elf build/example_core.elf --bin build/example_core.bin \\
+        --system-name "Example System" --dirname example \\
+        --extensions "bin lzma" \\
         --pad-logo assets/pad.bmp \\
         --header-logo assets/header.bmp \\
         --version 1.0.0 \\
-        --out ../wsv.bin
+        --out ../example.bin
 
 `--version X.Y.Z` (optional leading `v`, default 1.0.0) and `--core-name`
 (default: --out stem) are stored in `gnw_core_meta_t` and shown in the
@@ -314,7 +314,7 @@ def extract_logo_from_c(spec):
     able to render it is compiled into the firmware). Since a standalone
     core has no compile-time knowledge of which languages the *firmware*
     it will run against was built with (same simplification already made
-    for all of a dynamic core's own UI strings — see main_wsv.c/
+    for all of a dynamic core's own UI strings — see an external core's
     main_gwenesis.c, hardcoded English), we always take the `#else`
     (default/international) branch here."""
     path_str, _, varname = spec.rpartition(":")
@@ -518,10 +518,10 @@ def main():
     ap.add_argument("--bin", required=True, type=Path,
                      help="objcopy -O binary of --elf's segment-0 (RAM_EMU) sections — exactly segments[0].code_size bytes")
 
-    # Legacy single-system sugar (kept so cores/wsv, cores/md need no changes).
-    ap.add_argument("--system-name", help='e.g. "Watara Supervision" (single-system sugar for --system)')
-    ap.add_argument("--dirname", help='ROM subdirectory under /roms, e.g. "wsv" (single-system sugar)')
-    ap.add_argument("--extensions", help='space-separated, e.g. "wsv sv bin lzma" (single-system sugar)')
+    # Legacy single-system sugar (kept so existing core Makefiles need no changes).
+    ap.add_argument("--system-name", help='e.g. "Example System" (single-system sugar for --system)')
+    ap.add_argument("--dirname", help='ROM subdirectory under /roms, e.g. "example" (single-system sugar)')
+    ap.add_argument("--extensions", help='space-separated, e.g. "bin lzma" (single-system sugar)')
     ap.add_argument("--pad-logo",
                      help="pad (controller) logo image (.png/.bmp/...) (single-system sugar)")
     ap.add_argument("--header-logo",

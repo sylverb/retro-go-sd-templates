@@ -2,7 +2,7 @@
  * Shared C++ runtime support for standalone "core" binaries.
  *
  * Pulled in automatically by cores/_template/Makefile whenever a core sets
- * CORE_CXX_SOURCES (see that variable's doc comment) — e.g. cores/a2600.
+ * CORE_CXX_SOURCES (see that variable's doc comment) — e.g. external Stella.
  *
  * A C++ core builds -nostdlib, no libstdc++ (see cores/_template/Makefile's
  * CXXFLAGS comment on -fno-exceptions/-fno-rtti/-fno-threadsafe-statics/
@@ -201,7 +201,7 @@ extern "C" int __cxa_atexit(void (*)(void *), void *, void *)
 }
 
 /* ====================================================================
- * Exception / unwind stubs for cores that link -lstdc++ (Stella).
+ * Exception / unwind stubs for cores that link -lstdc++ (e.g. Stella).
  *
  * Toolchain libstdc++.a is built WITH exceptions; even with our own
  * -fno-exceptions, string/length_error paths still reference the EH

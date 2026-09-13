@@ -3,7 +3,7 @@
  *
  * INCLUDEd from both the main firmware linker script
  * (STM32H7B0VBTx_SDCARD.ld) and every standalone core's linker script
- * (cores/_template/core_ram_emu.ld, cores/wsv/wsv_core.ld, ...) so the
+ * (cores/_template/core_ram_emu.ld, ...) so the
  * VMA a core is linked at can never drift from where the firmware
  * actually loads it (see run_dynamic_core() in rg_emulators.c).
  *

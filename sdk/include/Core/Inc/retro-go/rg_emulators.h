@@ -82,7 +82,7 @@ typedef struct {
      * longer cached here: run_dynamic_core() re-probes the file's
      * gnw_core_meta_t at launch time instead, so this struct doesn't go
      * stale if the file changes between scan and launch.
-     * Empty for the compile-time tabs (Homebrew, PICO-8). */
+     * Empty for compile-time tabs (Homebrew). */
     char core_path[64];
 
     /* GNW_PARSE_ROM (plain per-file browse, scan_folder_cb) or

@@ -186,11 +186,11 @@ odroid_settings_Palette_set core_odroid_settings_Palette_set
 # --- Lynx (handy-go): fputs via fwrite/strlen; calloc via AHB (freeable) ---
 fputs core_fputs
 calloc core_calloc
-# --- Atari 2600 (Stella): atoi/strcasecmp composed from strtol/tolower ---
+# --- Atari 2600 (external Stella core): atoi/strcasecmp from strtol/tolower ---
 atoi core_atoi
 strcasecmp core_strcasecmp
 strncasecmp core_strncasecmp
-# --- libstdc++ support (cores/a2600): helpers also exported un-renamed ---
+# --- libstdc++ support (external C++ cores): helpers also exported un-renamed ---
 fputc core_fputc
 rewind core_rewind
 getenv core_getenv
@@ -212,7 +212,7 @@ rg_storage_exists core_rg_storage_exists
 rg_storage_get_adjacent_files core_rg_storage_get_adjacent_files
 rg_basename core_rg_basename
 audio_stop_playing core_audio_stop_playing
-# --- LCD-Game-Emulator (Game & Watch) ---
+# --- LCD-Game-Emulator (external Game & Watch core) ---
 GW_SetUnixTM core_GW_SetUnixTM
 lcd_is_swap_pending core_lcd_is_swap_pending
 JPEG_DecodeToFrameInit core_JPEG_DecodeToFrameInit
@@ -223,7 +223,7 @@ lzma_inflate core_lzma_inflate
 lz4_uncompress core_lz4_uncompress
 lz4_get_file_size core_lz4_get_file_size
 odroid_system_switch_app core_odroid_system_switch_app
-# --- Tamagotchi P1 ---
+# --- Frame pacing ---
 common_emu_frame_loop_reset core_common_emu_frame_loop_reset
 # --- GBA (gpSP) ---
 get_SystemCoreClock core_get_SystemCoreClock
@@ -261,3 +261,14 @@ odroid_overlay_get_font_size core_odroid_overlay_get_font_size
 odroid_overlay_get_font_width core_odroid_overlay_get_font_width
 odroid_overlay_draw_fill_rect core_odroid_overlay_draw_fill_rect
 imlib_draw_image core_imlib_draw_image
+lookup_data_in_flash core_lookup_data_in_flash
+store_data_in_flash core_store_data_in_flash
+store_data_set_progress_cb core_store_data_set_progress_cb
+store_data_begin core_store_data_begin
+store_data_append core_store_data_append
+store_data_finish core_store_data_finish
+store_data_abort core_store_data_abort
+lcd_get_mode core_lcd_get_mode
+odroid_overlay_draw_progress_bar core_odroid_overlay_draw_progress_bar
+rg_storage_mkdir core_rg_storage_mkdir
+rg_dirname core_rg_dirname

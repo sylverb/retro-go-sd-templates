@@ -405,8 +405,7 @@ typedef struct {
 
     /* ================================================================
      * v1 append: surface required to port a "classic" emulator core
-     * (e.g. Watara Supervision) to the external-core model. Identified
-     * by porting Core/Src/porting/wsv/main_wsv.c against this ABI.
+     * to the external-core model.
      * ================================================================ */
     char    *(*strcpy)(char *, const char *);
     void    *(*malloc)(size_t size);
@@ -501,7 +500,7 @@ typedef struct {
     const char *(*rg_basename)(const char *path);
 
     /* ================================================================
-     * v2 append: LCD-Game-Emulator (Game & Watch handhelds).
+     * v2 append: LCD-Game-Emulator (external Game & Watch core).
      * GW_SetUnixTM is the only RTC write entry left after the read-side
      * getters were dropped (no portable libc setter on this firmware).
      * ================================================================ */
@@ -516,9 +515,9 @@ typedef struct {
     unsigned int (*lz4_get_file_size)(const void *src);
 
     /* ================================================================
-     * v2 append: Tamagotchi P1 (tamalib) — frame-pacing reset after
-     * save-state catch-up fast-forward (static frame_integrator lives
-     * in firmware common.c).
+     * v2 append: reset frame-pacing after save-state catch-up
+     * fast-forward (static frame_integrator lives in firmware
+     * common.c). Kept for ABI compatibility with packed cores.
      * ================================================================ */
     void     (*common_emu_frame_loop_reset)(void);
 
@@ -619,6 +618,44 @@ typedef struct {
                              const uint8_t *alpha_palette, image_hint_t hint,
                              imlib_draw_row_callback_t callback,
                              void *dst_row_override);
+
+    /* ================================================================
+     * v2 append (ours): derived-blob flash cache. A core that decodes or
+     * weaves an asset once (the arcade master's woven 68000 program, its
+     * Z80 flag tables, a tile-plane LUT) stores it in external flash
+     * under a key and gets a memory-mapped pointer back on every later
+     * launch, instead of paying the RAM and the rebuild each time.
+     *
+     * The streaming form exists because the one-shot form needs a RAM
+     * buffer the size of the blob: a 512KB ROM entry did not fit in the
+     * machine pool and the failure looked like a missing ROM.
+     *
+     * NOTE FOR UPSTREAM: nothing here is arcade-specific -- any core that
+     * caches decoded assets wants it. Until it is upstream, a core built
+     * against these slots cannot run on stock firmware, because
+     * gnw_core_probe() gates on required_abi_min_size <= sizeof(abi).
+     * ================================================================ */
+    const uint8_t *(*lookup_data_in_flash)(const char *key, uint32_t *size_out);
+    const uint8_t *(*store_data_in_flash)(const char *key, const uint8_t *data,
+                                          uint32_t data_size);
+    void           (*store_data_set_progress_cb)(void (*cb)(uint32_t done, uint32_t total));
+    /* Streaming form; flash_stream_t is owned by the CALLER (gw_flash_alloc.h).
+     * The trampolines must stay RESIDENT in a core: they run while OSPI is
+     * unmapped, so a callback in flash faults. */
+    bool           (*store_data_begin)(void *st, const char *key, uint32_t total_size);
+    bool           (*store_data_append)(void *st, const uint8_t *buf, uint32_t len);
+    const uint8_t *(*store_data_finish)(void *st);
+    void           (*store_data_abort)(void *st);
+
+    /* ================================================================
+     * v2 append (ours): four small slots the arcade core needs and the
+     * bridge did not carry. lcd_pen() is static inline over lcd_get_mode()
+     * and needs no slot of its own.
+     * ================================================================ */
+    int  (*lcd_get_mode)(void);
+    void (*odroid_overlay_draw_progress_bar)(const char *header, uint8_t progress);
+    bool (*rg_storage_mkdir)(const char *dir);
+    const char *(*rg_dirname)(const char *path);
 
 } gw_firmware_abi_t;
 

@@ -384,12 +384,14 @@ int core_vsnprintf(char *s, size_t n, const char *fmt, va_list ap)
     return gw_firmware_abi()->vsnprintf(s, n, fmt, ap);
 }
 
-/* Minimal LCG — FCEU_MemoryRand / NSF visuals only need non-crypto entropy. */
+/* Minimal LCG. Must span 0..RAND_MAX (newlib: 0x7fffffff). Returning only
+ * 15 bits silently kills callers that do rand()/RAND_MAX (Celeste INST_NOISE
+ * dash whoosh, etc.). */
 static unsigned long core_rand_state = 1;
 int core_rand(void)
 {
     core_rand_state = core_rand_state * 1103515245UL + 12345UL;
-    return (int)((core_rand_state >> 16) & 0x7fff);
+    return (int)((core_rand_state >> 1) & 0x7fffffffUL);
 }
 
 /*

@@ -19,7 +19,7 @@
  *     only) Core/Src/heap.cpp. C++ cores call these names directly
  *     (declared in Core/Inc/heap.hpp) — heap_itc_alloc(true) temporarily
  *     routes allocations through the 64KB ITC pool, falling back to the
- *     shared RAM_EMU bump pool and then AHB SRAM when that's exhausted.
+ *     shared RAM_EMU bump pool then DTC and AHB SRAM when that's exhausted.
  *   - __cxa_pure_virtual: GCC always emits a reference to this in an
  *     abstract base class's vtable (for the pure-virtual slots), even
  *     though -fno-rtti plus every pure virtual actually being overridden
@@ -45,8 +45,8 @@ extern "C" {
 }
 
 /* ====================================================================
- * heap_alloc_mem() — ITCM only if heap_itc_alloc(true); otherwise AHB
- * (freeable newlib heap) first, then RAM_EMU bump, then DTCM bump.
+ * heap_alloc_mem() — ITCM only if heap_itc_alloc(true); otherwise
+ * RAM_EMU bump first, then DTCM (freeable), then AHB bump.
  * ==================================================================== */
 static bool s_heap_itc_alloc = false;
 
@@ -74,7 +74,9 @@ static const char *heap_pool_name(const void *ptr)
 extern "C" void *heap_alloc_mem(size_t s)
 {
     void *ptr = NULL;
+#ifdef GW_HEAP_TRACE
     const char *pool = NULL;
+#endif
 
     if (s_heap_itc_alloc) {
         void *p = itc_malloc(s);
@@ -82,23 +84,31 @@ extern "C" void *heap_alloc_mem(size_t s)
          * its own "allocation failed" sentinel — see gw_malloc.c. */
         if (p != (void *)0xffffffff) {
             ptr = p;
+#ifdef GW_HEAP_TRACE
             pool = "ITCM";
+#endif
         }
     }
     if (!ptr) {
-        ptr = ahb_malloc(s);
-        if (ptr)
-            pool = "AHB";
-    }
-    if (!ptr) {
         ptr = ram_malloc(s);
+#ifdef GW_HEAP_TRACE
         if (ptr)
             pool = "RAM_EMU";
+#endif
     }
     if (!ptr) {
         ptr = dtc_malloc(s);
+#ifdef GW_HEAP_TRACE
         if (ptr)
             pool = "DTCM";
+#endif
+    }
+    if (!ptr) {
+        ptr = ahb_malloc(s);
+#ifdef GW_HEAP_TRACE
+        if (ptr)
+            pool = "AHBM";
+#endif
     }
 
     if (ptr) {
@@ -106,8 +116,6 @@ extern "C" void *heap_alloc_mem(size_t s)
 #ifdef GW_HEAP_TRACE
         printf("[heap] %u B -> %s @ %p (tag %s)\n",
                (unsigned)s, pool, ptr, heap_pool_name(ptr));
-#else
-        (void)pool;
 #endif
     } else {
         printf("[heap] %u B -> FAIL\n", (unsigned)s);
